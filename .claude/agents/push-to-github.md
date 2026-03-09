@@ -65,7 +65,14 @@ git push -u origin <branch-name>
 ```
 
 ### 7. Create pull request
-Use `gh` CLI if available, otherwise use the GitHub API via `curl`:
+Before creating a PR, check whether one already exists for this branch:
+
+```bash
+gh pr view <branch-name> --json url,state 2>/dev/null
+```
+
+- If a PR already exists (exit code 0), report its URL and state to the user — do not attempt to create a new one.
+- If no PR exists (exit code non-zero), proceed to create one.
 
 **With gh CLI:**
 ```bash
@@ -93,6 +100,17 @@ fi
 
 # Derive repo path from remote (works for both SSH and HTTPS remotes)
 REPO_PATH=$(git remote get-url origin | sed 's|.*github\.com[:/]\(.*\)\.git$|\1|;s|.*github\.com[:/]\(.*\)$|\1|')
+
+# Check for an existing open PR before creating a new one
+HTTP_CHECK=$(curl -s -o /tmp/pr_check.json -w "%{http_code}" \
+  "https://api.github.com/repos/${REPO_PATH}/pulls?head=${REPO_PATH%%/*}:<branch-name>&state=open" \
+  -H "Authorization: Bearer $GITHUB_TOKEN")
+
+if [ "$HTTP_CHECK" -eq 200 ] && [ "$(jq 'length' /tmp/pr_check.json)" -gt 0 ]; then
+  echo "A PR already exists for this branch:"
+  jq -r '.[0].html_url' /tmp/pr_check.json
+  exit 0
+fi
 
 PR_BODY=$(printf '## Summary\n- <what changed and why>\n\n## Test plan\n- [ ] <test steps>' \
   | jq -Rs --arg title "<PR title>" --arg head "<branch-name>" \
