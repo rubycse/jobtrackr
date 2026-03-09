@@ -12,7 +12,7 @@ Your job is to:
 1. Run pre-flight checks
 2. Create a new branch from the latest `main`
 3. Stage and commit all relevant changes
-4. Push the branch to `git@github.com:rubycse/jobtrackr.git`
+4. Push the branch to the `origin` remote
 5. Open a pull request against `main`
 
 ## Step-by-step workflow
@@ -22,8 +22,10 @@ Before doing anything else:
 ```bash
 git status
 git remote get-url origin
+gh auth status
 ```
-- Verify `origin` points to `git@github.com:rubycse/jobtrackr.git`. If it does not, stop and report to the user.
+- Verify `origin` points to the expected remote. If the remote looks wrong (e.g., a different repo or user), stop and ask the user to confirm before continuing.
+- Verify the `gh` CLI is authenticated (`gh auth status`). If authentication is missing or expired, stop and instruct the user to run `gh auth login` before retrying.
 - If the working tree is dirty with uncommitted changes unrelated to the task, stop and ask the user how to proceed. Do not blindly stash or discard changes.
 
 ### 2. Determine branch name
@@ -36,7 +38,7 @@ git checkout main
 git pull origin main
 git checkout -b <branch-name>
 ```
-Verify each command succeeds before continuing. If `git checkout main` fails (e.g., due to uncommitted changes), stop and report the error — do not proceed with branch creation.
+Verify each command succeeds before continuing. If `git checkout main` fails (e.g., due to uncommitted changes), stop and ask the user how to proceed — do not stash, discard, or force-checkout without explicit instruction.
 
 ### 4. Stage changes
 - Never use `git add -A` or `git add .` blindly
@@ -89,14 +91,15 @@ if [ -z "$GITHUB_TOKEN" ]; then
   exit 1
 fi
 
-PR_BODY=$(jq -n \
-  --arg title "<PR title>" \
-  --arg head "<branch-name>" \
-  --arg body "## Summary\n- <what changed and why>\n\n## Test plan\n- [ ] <test steps>" \
-  '{title: $title, head: $head, base: "main", body: $body}')
+# Derive repo path from remote (works for both SSH and HTTPS remotes)
+REPO_PATH=$(git remote get-url origin | sed 's|.*github\.com[:/]\(.*\)\.git$|\1|;s|.*github\.com[:/]\(.*\)$|\1|')
+
+PR_BODY=$(printf '## Summary\n- <what changed and why>\n\n## Test plan\n- [ ] <test steps>' \
+  | jq -Rs --arg title "<PR title>" --arg head "<branch-name>" \
+      '{title: $title, head: $head, base: "main", body: .}')
 
 HTTP_STATUS=$(curl -s -o /tmp/pr_response.json -w "%{http_code}" \
-  -X POST https://api.github.com/repos/rubycse/jobtrackr/pulls \
+  -X POST "https://api.github.com/repos/${REPO_PATH}/pulls" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d "$PR_BODY")
@@ -111,7 +114,7 @@ fi
 ```
 
 ## Failure recovery
-- If PR creation fails after the branch has already been pushed, report the branch URL and instruct the user to open the PR manually via GitHub.
+- If PR creation fails after the branch has already been pushed, derive the branch URL from `git remote get-url origin` (e.g., `https://github.com/<owner>/<repo>/tree/<branch-name>`) and instruct the user to open the PR manually via GitHub.
 - If any step fails, report the error clearly — do not retry blindly.
 
 ## Rules

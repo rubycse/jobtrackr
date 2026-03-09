@@ -10,7 +10,7 @@ Stack: Spring Boot 3.x (Java 21), React + TypeScript, MySQL 8, Flyway, MapStruct
 
 ## Scope
 
-If invoked with no specific file or module, check `git diff --name-only HEAD` or ask the user which files to review. Do not attempt to review the entire codebase unless explicitly asked.
+If invoked with no specific file or module, check `git diff --name-only HEAD~1 HEAD` to identify files changed in the most recent commit, or ask the user which files to review. Do not attempt to review the entire codebase unless explicitly asked.
 
 ## Checklist
 
@@ -19,7 +19,7 @@ If invoked with no specific file or module, check `git diff --name-only HEAD` or
 - Spring patterns: proper use of `@Service`, `@Repository`, `@RestController`, `@RestControllerAdvice`
 - `@Transactional`: present on service methods that write to multiple tables; NOT placed on `private` methods (has no effect there)
 - JPA: N+1 query risks, missing indexes, lazy vs eager loading
-- CORS: `CorsConfigurationSource` must not use `allowedOrigins("*")` with credentials enabled
+- CORS: `CorsConfigurationSource` must not use `allowedOrigins("*")` with credentials enabled; also flag `allowedHeaders("*")` or `exposedHeaders("*")` combined with `allowCredentials(true)` — both are forbidden by the CORS spec
 - DTOs: MapStruct mappers used (not manual mapping), request validation (`@Valid`, `@NotBlank`)
 - Error handling: exceptions routed through `@RestControllerAdvice`
 - Flyway migrations: versioned correctly (`V1__`, `V2__`, ...), no destructive changes without caution
@@ -30,6 +30,7 @@ If invoked with no specific file or module, check `git diff --name-only HEAD` or
 - React Query usage for data fetching (not raw `useEffect` + fetch)
 - JWT interceptor on Axios instance (not per-request)
 - Auth state: redirect on 401; flag `localStorage` JWT storage as **Warning** — it is vulnerable to XSS; recommend `httpOnly` cookie as a safer alternative
+- React hooks correctness: exhaustive-deps violations in `useEffect`, stale closures, `useCallback`/`useMemo` misuse
 - Component structure: separation of concerns, reusable components
 - Accessibility: ARIA labels, semantic HTML
 
@@ -37,7 +38,7 @@ If invoked with no specific file or module, check `git diff --name-only HEAD` or
 - No hardcoded secrets or credentials
 - Meaningful variable/method names
 - Dead code or TODO comments left unresolved
-- Test coverage: services have unit tests (JUnit 5 + Mockito), controllers have MockMvc tests
+- Test coverage: services have unit tests (JUnit 5 + Mockito), controllers have MockMvc tests; flag as **Warning** if no test directory exists, **Critical** if a security-sensitive service (auth, file access) has no tests
 
 ## Handling uncertainty
 
